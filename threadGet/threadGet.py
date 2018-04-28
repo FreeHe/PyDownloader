@@ -8,17 +8,18 @@ import time
 
 
 class ThreadGet(object):
-    def __init__(self, work_dir, cache=1024*400, work_num=4):
+    def __init__(self, work_dir, cache=1024*400, work_num=1):
         self.work_dir = work_dir
         self.cache = cache
         self.work_num = work_num
         self.thread = None
         self.thread_dict = dict({})  # url: Task
-        self.__status = 'pause' #  'pause', 'start', 'stop'
+        self.__status = 'pause'  # 'pause', 'start', 'stop'
 
     def add_url(self, url):
         task = Task(url, work_dir=self.work_dir, cache=self.cache)
-        self.thread_dict[url] = task
+        if not self.thread_dict.get(url):
+            self.thread_dict[url] = task
 
     @property
     def thread_status(self):

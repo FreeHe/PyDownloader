@@ -14,7 +14,7 @@ from PyQt5.QtGui import QCursor, QFont
 from PyQt5.QtWidgets import (QApplication, QComboBox, QFileDialog, QHBoxLayout,
                              QInputDialog, QLabel, QLineEdit, QMainWindow,
                              QProgressBar, QPushButton, QScrollArea,
-                             QVBoxLayout, QWidget)
+                             QVBoxLayout, QWidget, QMessageBox)
 
 __all__ = ['QMainWin']
 
@@ -239,7 +239,7 @@ class QUnFrameWindow(QWidget):
 class AboutWidget(QWidget):
     """ Tab[关于]窗口类 """
     tip = '-项目地址-'
-    github = 'http://github.com/FreeHe/PyDownloader'
+    github = 'https://github.com/FreeHe/PyDownloader'
 
     def __init__(self):
         super().__init__()
@@ -279,7 +279,7 @@ class SettingWidget(QWidget):
         self.label1 = QLabel('同时下载数 ')
         self.label1.setProperty('name', 'label')
         self.qc1 = QComboBox()
-        self.qc1.addItems(['1','2', '3', '4'])
+        self.qc1.addItems(['1', '2', '3', '4'])
         self.qc1.setCurrentText(self.work_num)
         box1 = QHBoxLayout()
         box1.addWidget(self.label1)
@@ -290,7 +290,7 @@ class SettingWidget(QWidget):
         self.label2 = QLabel('最大连接数 ')
         self.label2.setProperty('name', 'label')
         self.qc2 = QComboBox()
-        self.qc2.addItems(['20','50', '80', '100'])
+        self.qc2.addItems(['20', '50', '80', '100'])
         self.qc2.setCurrentText(self.connect_num)
         box2 = QHBoxLayout()
         box2.addWidget(self.label2)
@@ -436,12 +436,12 @@ class DownloadWidget(QWidget):
 
 class FinishedPanel(QWidget):
     """ Tab[完成]窗口中单个完成项的窗口类 """
-    def __init__(self, finished):
+    def __init__(self, finished, finished_del):
         super().__init__()
         self.finished = finished
         self._init_panel()
         self._init_property()
-        self._init_connect()
+        self._init_connect(finished_del)
 
     def _init_panel(self):
         hbox = QHBoxLayout()
@@ -472,21 +472,25 @@ class FinishedPanel(QWidget):
         self.delete.setProperty('name', 'finished_delete')
         self.gap.setProperty('name', 'gap')
 
-    def _init_connect(self):
-        pass
+    def _init_connect(self, finished_del):
+        self.delete.clicked.connect(lambda: finished_del(self.finished))
 
 
 class FinishedWidget(QWidget):
     """ Tab[完成]窗口类 """
-    def __init__(self, finished_list):
+    def __init__(self, finished_list, finished_del):
         super().__init__()
         self.finished_list = finished_list
+        self.finished_del = finished_del
+        self.FinishedPanel_list = list([])
         self._init_finished_list()
 
     def _init_finished_list(self):
         vbox = QVBoxLayout()
         for finished in self.finished_list:
-            vbox.addWidget(FinishedPanel(finished))
+            tmp_finished = FinishedPanel(finished, self.finished_del)
+            vbox.addWidget(tmp_finished)
+            self.FinishedPanel_list.append(tmp_finished)
         self.setLayout(vbox)
 
 
@@ -520,6 +524,15 @@ class QMainWin(QUnFrameWindow):
             }
             QLabel[name='finished_label'] {
                 min-width: 100px;
+            }
+            QMessageBox QLabel{
+                min-width: 180px;
+                color: #000;
+            }
+            QMessageBox QPushButton {
+                background-color: #eee;
+                color: #000;
+                min-width: 50px;
             }
             SettingWidget{
                 background-color: #272822;  
@@ -695,13 +708,13 @@ class QMainWin(QUnFrameWindow):
             total_process = 0
         return total_process, thread_process_dict
 
-    def _scan_threadProcess(self): # TODO //
+    def _scan_threadProcess(self):
         if self._threadGet.get_status() == 'start':
             self._change_ui(*self._scanner())
         elif self._threadGet.finished_all():
             self._startButtonClicked()
-            self._startButtonClicked()
             self._change_ui(*self._scanner())
+            QApplication.processEvents()
             
     def _change_ui(self, total_process, thread_process_dict):
         self.label.setText(str(total_process*100)+'%')
@@ -722,6 +735,15 @@ class QMainWin(QUnFrameWindow):
                             panel.work_pause.setText('开始')
                         elif thread_process_dict[url][2] == 'finished':
                             del self._threadGet.thread_dict[url]
+                            if os.path.exists('config.pkl'):
+                                with open('config.pkl', 'rb') as f:
+                                    config = pickle.load(f)
+                                if config.get('finished_list'):
+                                    config['finished_list'].append(os.path.split(url)[1])
+                                else:
+                                    config['finished_list'] = [os.path.split(url)[1]]
+                                with open('config.pkl', 'wb') as f:
+                                    pickle.dump(config, f)
                             self._downloadButtonClicked()
                         elif thread_process_dict[url][2] == 'failed':
                             panel.work_pause.setText('重连')
@@ -787,6 +809,8 @@ class QMainWin(QUnFrameWindow):
         self.addLayout(self.allLayout)
 
     def _startButtonClicked(self):
+        if not self._threadGet.thread_dict.keys():
+            return
         if self._isClicked:
             """ 不知为何按一下按钮会执行两次此函数 所以有了这个判断 (->^<-) """
             self._isClicked = False
@@ -803,10 +827,19 @@ class QMainWin(QUnFrameWindow):
             self._isClicked = True
 
     def _addButtonClicked(self):
+        if os.path.exists('config.pkl'):
+            with open('config.pkl', 'rb') as f:
+                connect_num = int(pickle.load(f)['connect_num'])
+        else:
+            connect_num = 20
         url, ok = QInputDialog.getText(self, '新建任务', '链接地址')
-        if ok:
+        if ok and len(self._threadGet.thread_dict.keys()) < connect_num:
             self._threadGet.add_url(url)
             self._downloadButtonClicked()
+        elif not ok:
+            return
+        else:
+            QMessageBox.information(self, 'tip', 'number of connection is over')
 
     def _openFileDirClicked(self):
         import sys
@@ -828,6 +861,17 @@ class QMainWin(QUnFrameWindow):
         del self._threadGet.thread_dict[url]
         self._downloadButtonClicked()
 
+    def finished_del(self, finished):
+        if os.path.exists('config.pkl'):
+            with open('config.pkl', 'rb') as f:
+                config = pickle.load(f)
+            if config.get('finished_list'):
+                if finished in config['finished_list']:
+                    config['finished_list'].remove(finished)
+                    with open('config.pkl', 'wb') as f:
+                        pickle.dump(config, f)
+        self._finishedButtonClicked()
+
     def _massageButtonClicked(self):
         self.QScrollArea.setWidget(AboutWidget())
         QApplication.processEvents()
@@ -842,8 +886,14 @@ class QMainWin(QUnFrameWindow):
         QApplication.processEvents()
 
     def _finishedButtonClicked(self):
-        self.QScrollArea.setWidget(
-            FinishedWidget(['qwqdx.2324','q/we.mp4','we/2324.jpg','qwwq/vfdv','fddv/wfwefw']))
+        if os.path.exists('config.pkl'):
+            with open('config.pkl', 'rb') as f:
+                tmp = pickle.load(f).get('finished_list')
+                finished_list = tmp if tmp else list([])
+        else:
+            finished_list = list([])
+        self.FinishedWidget = FinishedWidget(finished_list, self.finished_del)
+        self.QScrollArea.setWidget(self.FinishedWidget)
         QApplication.processEvents()
 
     def _settingButtonClicked(self):
