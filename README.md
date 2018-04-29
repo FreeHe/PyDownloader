@@ -2,4 +2,4 @@
 ### lite Application for download (with PyQt5)
 ### preview 2018-4-28
 ![](https://github.com/FreeHe/PyDownloader/raw/master/preview.png)
-![scan](https://github.com/FreeHe/source/raw/master/py-downloader.gif)
+![scan](https://github.com/FreeHe/source/raw/master/py-downloader.mp4)
