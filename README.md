@@ -1,4 +1,5 @@
-## PyDownloader v-1.0.0
-### PyQt5实现的轻量级下载器
+## PyDownloader v-1.0.0 for my Raspberry-Pi
+### lite Application for download (with PyQt5)
 ### preview 2018-4-28
 ![](https://github.com/FreeHe/PyDownloader/raw/master/preview.png)
+![scan](https://github.com/FreeHe/source/raw/master/py-downloader.gif)
