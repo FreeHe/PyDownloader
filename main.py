@@ -24,4 +24,4 @@ win = QMainWin(ThreadGet(work_dir, work_num = work_num))
 win.show()
 sys.exit(app.exec_())
 
-# TODO // start button event logic
+#  TODO // start button event logic
